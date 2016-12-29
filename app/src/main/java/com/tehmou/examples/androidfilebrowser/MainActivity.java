@@ -2,16 +2,16 @@ package com.tehmou.examples.androidfilebrowser;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.ListView;
-
-import com.jakewharton.rxbinding.view.RxView;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -21,11 +21,15 @@ import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 import rx.subjects.BehaviorSubject;
+import rx.subjects.PublishSubject;
 
 public class MainActivity extends AppCompatActivity {
 
 
     private static final String TAG = MainActivity.class.getSimpleName();
+
+    private final PublishSubject<Void> backEventObservable = PublishSubject.create();
+    private final PublishSubject<Void> homeEventObservable = PublishSubject.create();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +44,27 @@ public class MainActivity extends AppCompatActivity {
         } else {
             initWithPermissions();
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_back) {
+            backEventObservable.onNext(null);
+            return true;
+        } else if (id == R.id.action_home) {
+            homeEventObservable.onNext(null);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -71,18 +96,18 @@ public class MainActivity extends AppCompatActivity {
                                     }
                                 }));
 
-        Observable<File> previousButtonObservable =
-                RxView.clicks(findViewById(R.id.previous_button))
+        Observable<File> fileChangeBackEventObservable =
+                backEventObservable
                         .map(event -> selectedFile.getValue().getParentFile());
 
-        Observable<File> rootButtonObservable =
-                RxView.clicks(findViewById(R.id.root_button))
+        Observable<File> fileChangeHomeEventObservable =
+                homeEventObservable
                         .map(event -> root);
 
         Observable.merge(
                 listItemClickObservable,
-                previousButtonObservable,
-                rootButtonObservable)
+                fileChangeBackEventObservable,
+                fileChangeHomeEventObservable)
                 .subscribe(selectedFile);
 
         selectedFile
