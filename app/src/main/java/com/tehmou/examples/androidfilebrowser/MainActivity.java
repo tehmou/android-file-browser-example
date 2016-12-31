@@ -74,16 +74,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initWithPermissions() {
+        final File root = new File(
+                Environment.getExternalStorageDirectory().getPath());
+
+        final FileBrowserStore store = new FileBrowserStore(root);
 
         final ListView listView = (ListView) findViewById(R.id.list_view);
         FileListAdapter adapter =
                 new FileListAdapter(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         listView.setAdapter(adapter);
-
-        final File root = new File(
-                Environment.getExternalStorageDirectory().getPath());
-        final BehaviorSubject<File> selectedFile =
-                BehaviorSubject.create(root);
 
         Observable<File> listItemClickObservable =
                 Observable.create(subscriber ->
@@ -98,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
 
         Observable<File> fileChangeBackEventObservable =
                 backEventObservable
-                        .map(event -> selectedFile.getValue().getParentFile());
+                        .map(event -> store.getSelectedFileValue().getParentFile());
 
         Observable<File> fileChangeHomeEventObservable =
                 homeEventObservable
@@ -108,9 +107,9 @@ public class MainActivity extends AppCompatActivity {
                 listItemClickObservable,
                 fileChangeBackEventObservable,
                 fileChangeHomeEventObservable)
-                .subscribe(selectedFile);
+                .subscribe(store::putSelectedFile);
 
-        selectedFile
+        store.getSelectedFile()
                 .subscribeOn(Schedulers.io())
                 .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
                 .flatMap(this::createFilesObservable)
@@ -126,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
                         e -> Log.e(TAG, "Error reading files", e),
                         () -> Log.d(TAG, "Completed"));
 
-        selectedFile
+        store.getSelectedFile()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(file -> setTitle(file.getAbsolutePath()));
     }
