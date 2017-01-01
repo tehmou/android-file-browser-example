@@ -97,7 +97,8 @@ public class MainActivity extends AppCompatActivity {
 
         Observable<File> fileChangeBackEventObservable =
                 backEventObservable
-                        .map(event -> store.getSelectedFileValue().getParentFile());
+                        .withLatestFrom(store.getSelectedFile(),
+                                (ignore, file) -> file.getParentFile());
 
         Observable<File> fileChangeHomeEventObservable =
                 homeEventObservable

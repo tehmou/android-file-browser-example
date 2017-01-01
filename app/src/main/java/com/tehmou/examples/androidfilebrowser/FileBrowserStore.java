@@ -12,10 +12,6 @@ public class FileBrowserStore {
         selectedFile = BehaviorSubject.create(root);
     }
 
-    public File getSelectedFileValue() {
-        return selectedFile.getValue();
-    }
-
     public Observable<File> getSelectedFile() {
         return selectedFile.asObservable();
     }
