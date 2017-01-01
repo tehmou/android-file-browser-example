@@ -20,7 +20,6 @@ import java.util.List;
 import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
-import rx.subjects.BehaviorSubject;
 import rx.subjects.PublishSubject;
 
 public class MainActivity extends AppCompatActivity {
@@ -110,12 +109,16 @@ public class MainActivity extends AppCompatActivity {
                 fileChangeHomeEventObservable)
                 .subscribe(store::putSelectedFile);
 
+        // Connect selectedFile to filesList
         store.getSelectedFile()
                 .subscribeOn(Schedulers.io())
                 .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
                 .flatMap(this::createFilesObservable)
                 .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
                 .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
+                .subscribe(store::putFilesList);
+
+        store.getFilesList()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         files -> {
