@@ -103,22 +103,15 @@ public class MainActivity extends AppCompatActivity {
                 homeEventObservable
                         .map(event -> root);
 
-        Observable.merge(
+        FileBrowserViewModel viewModel = new FileBrowserViewModel(
+                store,
                 listItemClickObservable,
                 fileChangeBackEventObservable,
-                fileChangeHomeEventObservable)
-                .subscribe(store::putSelectedFile);
+                fileChangeHomeEventObservable,
+                this::createFilesObservable
+        );
 
-        // Connect selectedFile to filesList
-        store.getSelectedFile()
-                .subscribeOn(Schedulers.io())
-                .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
-                .flatMap(this::createFilesObservable)
-                .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
-                .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
-                .subscribe(store::putFilesList);
-
-        store.getFilesList()
+        viewModel.getFilesList()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         files -> {
@@ -129,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
                         e -> Log.e(TAG, "Error reading files", e),
                         () -> Log.d(TAG, "Completed"));
 
-        store.getSelectedFile()
+        viewModel.getSelectedFile()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(file -> setTitle(file.getAbsolutePath()));
     }
