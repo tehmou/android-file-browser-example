@@ -36,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        setTitle("Android File Browser");
+
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -125,10 +127,6 @@ public class MainActivity extends AppCompatActivity {
                         },
                         e -> Log.e(TAG, "Error reading files", e),
                         () -> Log.d(TAG, "Completed"));
-
-        selectedFile
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(file -> setTitle(file.getAbsolutePath()));
     }
 
     private List<File> getFiles(final File f) {
