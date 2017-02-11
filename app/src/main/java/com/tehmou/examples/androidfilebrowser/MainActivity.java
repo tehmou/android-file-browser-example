@@ -75,6 +75,89 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initWithPermissions() {
-        // TODO: All initialization of reactive chains etc. goes here
+
+        final ListView listView = (ListView) findViewById(R.id.list_view);
+        FileListAdapter adapter =
+                new FileListAdapter(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        listView.setAdapter(adapter);
+
+        final File root = new File(
+                Environment.getExternalStorageDirectory().getPath());
+        final BehaviorSubject<File> selectedDir =
+                BehaviorSubject.create(root);
+
+        Observable<File> listItemClickObservable = createListItemClickObservable(listView);
+
+        Observable<File> fileChangeBackEventObservable =
+                backEventObservable
+                        .map(event -> selectedDir.getValue().getParentFile());
+
+        Observable<File> fileChangeHomeEventObservable =
+                homeEventObservable
+                        .map(event -> root);
+
+        Observable.merge(
+                listItemClickObservable,
+                fileChangeBackEventObservable,
+                fileChangeHomeEventObservable)
+                .subscribe(selectedDir);
+
+        selectedDir
+                .subscribeOn(Schedulers.io())
+                .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
+                .switchMap(file ->
+                        createFilesObservable(file)
+                                .subscribeOn(Schedulers.io()))
+                .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
+                .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        files -> {
+                            Log.d(TAG, "Updating adapter with " + files.size() + " items");
+                            adapter.clear();
+                            adapter.addAll(files);
+                        },
+                        e -> Log.e(TAG, "Error reading files", e),
+                        () -> Log.d(TAG, "Completed"));
+    }
+
+    private List<File> getFiles(final File f) {
+        List<File> fileList = new ArrayList<>();
+        File[] files = f.listFiles();
+
+        if (files != null) {
+            for (File file : files) {
+                if (!file.isHidden() && file.canRead()) {
+                    fileList.add(file);
+                }
+            }
+        }
+
+        return fileList;
+    }
+
+    Observable<List<File>> createFilesObservable(
+            final File f) {
+        return Observable.create(subscriber -> {
+            try {
+                final List<File> fileList = getFiles(f);
+                subscriber.onNext(fileList);
+                subscriber.onCompleted();
+            } catch (Exception e) {
+                subscriber.onError(e);
+            }
+        });
+    }
+
+    Observable<File> createListItemClickObservable(ListView listView) {
+        return Observable.create(subscriber ->
+                listView.setOnItemClickListener(
+                        (parent, view, position, id) -> {
+                            final File file = (File) view.getTag();
+                            Log.d(TAG, "Selected: " + file);
+                            if (file.isDirectory()) {
+                                subscriber.onNext(file);
+                            }
+                        }));
     }
 }
