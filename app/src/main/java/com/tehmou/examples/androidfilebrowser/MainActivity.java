@@ -18,14 +18,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import rx.Observable;
+import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 import rx.subjects.BehaviorSubject;
 import rx.subjects.PublishSubject;
+import rx.subscriptions.CompositeSubscription;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName();
+
+    private final CompositeSubscription subscriptions =
+            new CompositeSubscription();
 
     private final PublishSubject<Void> backEventObservable = PublishSubject.create();
     private final PublishSubject<Void> homeEventObservable = PublishSubject.create();
@@ -45,6 +50,12 @@ public class MainActivity extends AppCompatActivity {
         } else {
             initWithPermissions();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        subscriptions.clear();
     }
 
     @Override
@@ -96,29 +107,33 @@ public class MainActivity extends AppCompatActivity {
                 homeEventObservable
                         .map(event -> root);
 
-        Observable.merge(
-                listItemClickObservable,
-                fileChangeBackEventObservable,
-                fileChangeHomeEventObservable)
-                .subscribe(selectedDir);
+        Subscription selectedDirSubscription =
+                Observable.merge(
+                        listItemClickObservable,
+                        fileChangeBackEventObservable,
+                        fileChangeHomeEventObservable
+                ).subscribe(selectedDir);
 
-        selectedDir
-                .subscribeOn(Schedulers.io())
-                .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
+        Subscription showFilesSubscription = selectedDir
+            .subscribeOn(Schedulers.io())
+            .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
                 .switchMap(file ->
                         createFilesObservable(file)
                                 .subscribeOn(Schedulers.io()))
-                .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
-                .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        files -> {
-                            Log.d(TAG, "Updating adapter with " + files.size() + " items");
-                            adapter.clear();
-                            adapter.addAll(files);
-                        },
-                        e -> Log.e(TAG, "Error reading files", e),
-                        () -> Log.d(TAG, "Completed"));
+            .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
+            .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                    files -> {
+                        Log.d(TAG, "Updating adapter with " + files.size() + " items");
+                        adapter.clear();
+                        adapter.addAll(files);
+                    },
+                    e -> Log.e(TAG, "Error readings files", e),
+                    () -> Log.d(TAG, "Completed"));
+
+        subscriptions.add(selectedDirSubscription);
+        subscriptions.add(showFilesSubscription);
     }
 
     private List<File> getFiles(final File f) {
