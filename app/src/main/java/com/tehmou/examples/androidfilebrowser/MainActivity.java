@@ -19,6 +19,8 @@ import java.util.List;
 
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.BehaviorSubject;
 import io.reactivex.subjects.PublishSubject;
@@ -26,6 +28,9 @@ import io.reactivex.subjects.PublishSubject;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName();
+
+    private final CompositeDisposable subscriptions =
+            new CompositeDisposable();
 
     private final PublishSubject<Object> backEventObservable = PublishSubject.create();
     private final PublishSubject<Object> homeEventObservable = PublishSubject.create();
@@ -45,6 +50,12 @@ public class MainActivity extends AppCompatActivity {
         } else {
             initWithPermissions();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        subscriptions.clear();
     }
 
     @Override
@@ -96,29 +107,33 @@ public class MainActivity extends AppCompatActivity {
                 homeEventObservable
                         .map(event -> root);
 
-        Observable.merge(
-                listItemClickObservable,
-                fileChangeBackEventObservable,
-                fileChangeHomeEventObservable)
-                .subscribe(selectedDir);
+        Disposable selectedDirSubscription =
+                Observable.merge(
+                        listItemClickObservable,
+                        fileChangeBackEventObservable,
+                        fileChangeHomeEventObservable
+                ).subscribe(selectedDir::onNext);
 
-        selectedDir
-                .subscribeOn(Schedulers.io())
-                .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
+        Disposable showFilesSubscription = selectedDir
+            .subscribeOn(Schedulers.io())
+            .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
                 .switchMap(file ->
                         createFilesObservable(file)
                                 .subscribeOn(Schedulers.io()))
-                .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
-                .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        files -> {
-                            Log.d(TAG, "Updating adapter with " + files.size() + " items");
-                            adapter.clear();
-                            adapter.addAll(files);
-                        },
-                        e -> Log.e(TAG, "Error reading files", e),
-                        () -> Log.d(TAG, "Completed"));
+            .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
+            .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(
+                    files -> {
+                        Log.d(TAG, "Updating adapter with " + files.size() + " items");
+                        adapter.clear();
+                        adapter.addAll(files);
+                    },
+                    e -> Log.e(TAG, "Error readings files", e),
+                    () -> Log.d(TAG, "Completed"));
+
+        subscriptions.add(selectedDirSubscription);
+        subscriptions.add(showFilesSubscription);
     }
 
     private List<File> getFiles(final File f) {
