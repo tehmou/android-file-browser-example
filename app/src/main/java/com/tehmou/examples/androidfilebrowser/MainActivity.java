@@ -64,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        viewSubscriptions.clear();
+        releaseViewBinding();
         viewModel.unsubscribe();
     }
 
@@ -111,11 +111,19 @@ public class MainActivity extends AppCompatActivity {
         );
 
         viewModel.subscribe();
+        makeViewBinding();
+    }
+
+    private void makeViewBinding() {
         viewSubscriptions.add(
                 viewModel.getFileListObservable()
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(this::setFileList)
         );
+    }
+
+    private void releaseViewBinding() {
+        viewSubscriptions.clear();
     }
 
     private void setFileList(List<File> files) {
