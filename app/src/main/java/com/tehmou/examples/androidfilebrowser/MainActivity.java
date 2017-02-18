@@ -29,11 +29,15 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
-    private final CompositeDisposable subscriptions =
+    private final CompositeDisposable viewSubscriptions =
             new CompositeDisposable();
 
     private final PublishSubject<Object> backEventObservable = PublishSubject.create();
     private final PublishSubject<Object> homeEventObservable = PublishSubject.create();
+
+    private ListView listView;
+    private FileListAdapter adapter;
+    private FileBrowserViewModel viewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +45,11 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         setTitle("Android File Browser");
+
+        listView = (ListView) findViewById(R.id.list_view);
+        adapter = new FileListAdapter(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        listView.setAdapter(adapter);
+
 
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -55,7 +64,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        subscriptions.clear();
+        viewSubscriptions.clear();
+        viewModel.unsubscribe();
     }
 
     @Override
@@ -86,12 +96,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initWithPermissions() {
-
-        final ListView listView = (ListView) findViewById(R.id.list_view);
-        FileListAdapter adapter =
-                new FileListAdapter(this, android.R.layout.simple_list_item_1, new ArrayList<>());
-        listView.setAdapter(adapter);
-
         final File root = new File(
                 Environment.getExternalStorageDirectory().getPath());
         final BehaviorSubject<File> selectedDir =
@@ -99,41 +103,25 @@ public class MainActivity extends AppCompatActivity {
 
         Observable<File> listItemClickObservable = createListItemClickObservable(listView);
 
-        Observable<File> fileChangeBackEventObservable =
-                backEventObservable
-                        .map(event -> selectedDir.getValue().getParentFile());
+        viewModel = new FileBrowserViewModel(
+                listItemClickObservable,
+                backEventObservable,
+                homeEventObservable,
+                root, this::createFilesObservable
+        );
 
-        Observable<File> fileChangeHomeEventObservable =
-                homeEventObservable
-                        .map(event -> root);
+        viewModel.subscribe();
+        viewSubscriptions.add(
+                viewModel.getFileListObservable()
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(this::setFileList)
+        );
+    }
 
-        Disposable selectedDirSubscription =
-                Observable.merge(
-                        listItemClickObservable,
-                        fileChangeBackEventObservable,
-                        fileChangeHomeEventObservable
-                ).subscribe(selectedDir::onNext);
-
-        Disposable showFilesSubscription = selectedDir
-            .subscribeOn(Schedulers.io())
-            .doOnNext(file -> Log.d(TAG, "Selected file: " + file))
-                .switchMap(file ->
-                        createFilesObservable(file)
-                                .subscribeOn(Schedulers.io()))
-            .doOnNext(list -> Log.d(TAG, "Found " + list.size() + " files"))
-            .doOnNext(list -> Log.d(TAG, "Processing " + list.size() + " files"))
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(
-                    files -> {
-                        Log.d(TAG, "Updating adapter with " + files.size() + " items");
-                        adapter.clear();
-                        adapter.addAll(files);
-                    },
-                    e -> Log.e(TAG, "Error readings files", e),
-                    () -> Log.d(TAG, "Completed"));
-
-        subscriptions.add(selectedDirSubscription);
-        subscriptions.add(showFilesSubscription);
+    private void setFileList(List<File> files) {
+        Log.d(TAG, "Updating adapter with " + files.size() + " items");
+        adapter.clear();
+        adapter.addAll(files);
     }
 
     private List<File> getFiles(final File f) {
