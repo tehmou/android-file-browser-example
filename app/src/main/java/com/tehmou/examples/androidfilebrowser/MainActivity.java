@@ -48,6 +48,18 @@ public class MainActivity extends AppCompatActivity {
         adapter = new FileListAdapter(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         listView.setAdapter(adapter);
 
+        // Create View Model but do not subscribe until we have permissions
+        final File root = new File(
+                Environment.getExternalStorageDirectory().getPath());
+
+        Observable<File> listItemClickObservable = createListItemClickObservable(listView);
+
+        viewModel = new FileBrowserViewModel(
+                listItemClickObservable,
+                backEventObservable,
+                homeEventObservable,
+                root, this::createFilesObservable
+        );
 
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -62,8 +74,19 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        releaseViewBinding();
         viewModel.unsubscribe();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        makeViewBinding();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        releaseViewBinding();
     }
 
     @Override
@@ -94,22 +117,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initWithPermissions() {
-        final File root = new File(
-                Environment.getExternalStorageDirectory().getPath());
-        final BehaviorSubject<File> selectedDir =
-                BehaviorSubject.create(root);
-
-        Observable<File> listItemClickObservable = createListItemClickObservable(listView);
-
-        viewModel = new FileBrowserViewModel(
-                listItemClickObservable,
-                backEventObservable,
-                homeEventObservable,
-                root, this::createFilesObservable
-        );
-
         viewModel.subscribe();
-        makeViewBinding();
     }
 
     private void makeViewBinding() {
