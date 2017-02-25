@@ -5,8 +5,6 @@ import java.util.List;
 
 import io.reactivex.Observable;
 import io.reactivex.disposables.CompositeDisposable;
-import io.reactivex.functions.Function;
-import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.BehaviorSubject;
 
 public class FileBrowserViewModel {
@@ -14,34 +12,34 @@ public class FileBrowserViewModel {
 
     private final BehaviorSubject<List<File>> filesSubject = BehaviorSubject.create();
 
+    private final FileBrowserModel fileBrowserModel;
+
     private final Observable<File> listItemClickObservable;
     private final Observable<Object> previousClickObservable;
     private final Observable<Object> rootClickObservable;
     private final File fileSystemRoot;
-    private final Function<File, Observable<List<File>>> getFiles;
 
     public FileBrowserViewModel(
+            FileBrowserModel fileBrowserModel,
             Observable<File> listItemClickObservable,
             Observable<Object> previousClickObservable,
             Observable<Object> rootClickObservable,
-            File fileSystemRoot,
-            Function<File, Observable<List<File>>> getFiles) {
+            File fileSystemRoot) {
+        this.fileBrowserModel = fileBrowserModel;
         this.listItemClickObservable = listItemClickObservable;
         this.previousClickObservable = previousClickObservable;
         this.rootClickObservable = rootClickObservable;
         this.fileSystemRoot = fileSystemRoot;
-        this.getFiles = getFiles;
     }
 
     public void subscribe() {
-        final BehaviorSubject<File> selectedFile =
-                BehaviorSubject.createDefault(fileSystemRoot);
+        // Reset to file system root
+        fileBrowserModel.putSelectedFolder(fileSystemRoot);
 
         Observable<File> previousFileObservable =
                 previousClickObservable
-                        .map(event ->
-                                selectedFile.getValue()
-                                        .getParentFile());
+                        .withLatestFrom(fileBrowserModel.getSelectedFolder(),
+                                (ignore, selectedFile) -> selectedFile.getParentFile());
 
         Observable<File> rootFileObservable =
                 rootClickObservable
@@ -51,12 +49,9 @@ public class FileBrowserViewModel {
                 listItemClickObservable,
                 previousFileObservable,
                 rootFileObservable)
-                .subscribe(selectedFile::onNext));
+                .subscribe(fileBrowserModel::putSelectedFolder));
 
-        subscriptions.add(selectedFile
-                .switchMap(file ->
-                        getFiles.apply(file)
-                                .subscribeOn(Schedulers.io()))
+        subscriptions.add(fileBrowserModel.getFilesList()
                 .subscribe(filesSubject::onNext));
     }
 

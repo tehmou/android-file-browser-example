@@ -33,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private final PublishSubject<Object> backEventObservable = PublishSubject.create();
     private final PublishSubject<Object> homeEventObservable = PublishSubject.create();
 
+    private FileBrowserModel fileBrowserModel;
     private ListView listView;
     private FileListAdapter adapter;
     private FileBrowserViewModel viewModel;
@@ -54,11 +55,14 @@ public class MainActivity extends AppCompatActivity {
 
         Observable<File> listItemClickObservable = createListItemClickObservable(listView);
 
+        fileBrowserModel =
+                new FileBrowserModel(this::createFilesObservable);
         viewModel = new FileBrowserViewModel(
+                fileBrowserModel,
                 listItemClickObservable,
                 backEventObservable,
                 homeEventObservable,
-                root, this::createFilesObservable
+                root
         );
 
         if (ContextCompat.checkSelfPermission(this,
@@ -117,20 +121,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initWithPermissions() {
-        final File root = new File(
-                Environment.getExternalStorageDirectory().getPath());
-        final BehaviorSubject<File> selectedDir =
-                BehaviorSubject.createDefault(root);
-
-        Observable<File> listItemClickObservable = createListItemClickObservable(listView);
-
-        viewModel = new FileBrowserViewModel(
-                listItemClickObservable,
-                backEventObservable,
-                homeEventObservable,
-                root, this::createFilesObservable
-        );
-
         viewModel.subscribe();
     }
 
