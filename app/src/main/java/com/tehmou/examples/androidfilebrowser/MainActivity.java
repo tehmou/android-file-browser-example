@@ -19,7 +19,6 @@ import java.util.List;
 
 import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
-import rx.subjects.BehaviorSubject;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
@@ -33,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
     private final PublishSubject<Void> backEventObservable = PublishSubject.create();
     private final PublishSubject<Void> homeEventObservable = PublishSubject.create();
 
+    private FileBrowserModel fileBrowserModel;
     private ListView listView;
     private FileListAdapter adapter;
     private FileBrowserViewModel viewModel;
@@ -54,11 +54,14 @@ public class MainActivity extends AppCompatActivity {
 
         Observable<File> listItemClickObservable = createListItemClickObservable(listView);
 
+        fileBrowserModel =
+                new FileBrowserModel(this::createFilesObservable);
         viewModel = new FileBrowserViewModel(
+                fileBrowserModel,
                 listItemClickObservable,
                 backEventObservable,
                 homeEventObservable,
-                root, this::createFilesObservable
+                root
         );
 
         if (ContextCompat.checkSelfPermission(this,
