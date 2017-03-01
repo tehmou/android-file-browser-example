@@ -25,6 +25,7 @@ import rx.subscriptions.CompositeSubscription;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName();
+    private static final String SHARED_PREFERENCES_NAME = "file_browser";
 
     private final CompositeSubscription viewSubscriptions =
             new CompositeSubscription();
@@ -48,20 +49,19 @@ public class MainActivity extends AppCompatActivity {
         adapter = new FileListAdapter(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         listView.setAdapter(adapter);
 
-        // Create View Model but do not subscribe until we have permissions
-        final File root = new File(
-                Environment.getExternalStorageDirectory().getPath());
-
         Observable<File> listItemClickObservable = createListItemClickObservable(listView);
 
         fileBrowserModel =
-                new FileBrowserModel(this::createFilesObservable);
+                new FileBrowserModel(
+                        this::createFilesObservable,
+                        Environment.getExternalStorageDirectory().getPath(),
+                        getSharedPreferences(SHARED_PREFERENCES_NAME, 0)
+                );
         viewModel = new FileBrowserViewModel(
                 fileBrowserModel,
                 listItemClickObservable,
                 backEventObservable,
-                homeEventObservable,
-                root
+                homeEventObservable
         );
 
         if (ContextCompat.checkSelfPermission(this,

@@ -17,25 +17,19 @@ public class FileBrowserViewModel {
     private final Observable<File> listItemClickObservable;
     private final Observable<Void> previousClickObservable;
     private final Observable<Void> rootClickObservable;
-    private final File fileSystemRoot;
 
     public FileBrowserViewModel(
             FileBrowserModel fileBrowserModel,
             Observable<File> listItemClickObservable,
             Observable<Void> previousClickObservable,
-            Observable<Void> rootClickObservable,
-            File fileSystemRoot) {
+            Observable<Void> rootClickObservable) {
         this.fileBrowserModel = fileBrowserModel;
         this.listItemClickObservable = listItemClickObservable;
         this.previousClickObservable = previousClickObservable;
         this.rootClickObservable = rootClickObservable;
-        this.fileSystemRoot = fileSystemRoot;
     }
 
     public void subscribe() {
-        // Reset to file system root
-        fileBrowserModel.putSelectedFolder(fileSystemRoot);
-
         Observable<File> previousFileObservable =
                 previousClickObservable
                         .withLatestFrom(fileBrowserModel.getSelectedFolder(),
@@ -43,7 +37,7 @@ public class FileBrowserViewModel {
 
         Observable<File> rootFileObservable =
                 rootClickObservable
-                        .map(event -> fileSystemRoot);
+                        .map(event -> fileBrowserModel.getDefaultFolder());
 
         subscriptions.add(Observable.merge(
                 listItemClickObservable,
